@@ -9,6 +9,7 @@ import org.selyu.obf.core.transformer.IMapTransformer;
 import org.selyu.obf.core.transformer.IResourceTransformer;
 import org.selyu.obf.core.transformer.ISimpleTransformer;
 import org.selyu.obf.core.transformer.ITransformer;
+import org.selyu.obf.core.transformer.impl.ClassNameTransformer;
 import org.selyu.obf.core.transformer.impl.DebugTransformer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +27,8 @@ import java.util.jar.JarOutputStream;
 
 public final class Obfuscator {
     private static final ITransformer[] TRANSFORMERS = {
-            new DebugTransformer()
+            new DebugTransformer(),
+            new ClassNameTransformer()
     };
 
     private final Logger logger = LoggerFactory.getLogger("main");
@@ -101,7 +103,7 @@ public final class Obfuscator {
                     ((ISimpleTransformer) transformer).transform(classNode);
                 }
             } else if (transformer instanceof IMapTransformer) {
-                var newMap = ((IMapTransformer) transformer).transform(new HashMap<>(classNodeMap));
+                var newMap = ((IMapTransformer) transformer).transformClasses(new HashMap<>(classNodeMap));
                 if (newMap != null) {
                     classNodeMap = newMap;
                 }
@@ -109,7 +111,7 @@ public final class Obfuscator {
 
             // not in the if-else because some transformers may be both
             if (transformer instanceof IResourceTransformer) {
-                var newMap = ((IResourceTransformer) transformer).transform(new HashMap<>(resourceMap));
+                var newMap = ((IResourceTransformer) transformer).transformResources(new HashMap<>(resourceMap));
                 if (newMap != null) {
                     resourceMap = newMap;
                 }

@@ -12,5 +12,5 @@ public interface IResourceTransformer extends ITransformer {
      * @return Null if the transformer makes no modification to the map else the modified map
      */
     @Nullable
-    HashMap<String, byte[]> transform(@NotNull Map<String, byte[]> resourceMap);
+    HashMap<String, byte[]> transformResources(@NotNull Map<String, byte[]> resourceMap);
 }
