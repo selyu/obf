@@ -6,6 +6,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.tree.ClassNode;
 import org.selyu.obf.core.transformer.IMapTransformer;
+import org.selyu.obf.core.transformer.IResourceTransformer;
 import org.selyu.obf.core.transformer.ISimpleTransformer;
 import org.selyu.obf.core.transformer.ITransformer;
 import org.selyu.obf.core.transformer.impl.DebugTransformer;
@@ -57,15 +58,13 @@ public final class Obfuscator {
         timer.start("read input jar file");
 
         var classNodeMap = new HashMap<String, ClassNode>();
+        var resourceMap = new HashMap<String, byte[]>();
+
         var entries = jarFile.entries();
         while (entries.hasMoreElements()) { // loop through files
             var entry = entries.nextElement();
-            if (!entry.getName().endsWith(".class"))
-                continue;
-
             byte[] bytes;
 
-            // auto disposal
             try (
                     var inputStream = jarFile.getInputStream(entry);
                     var outputStream = new ByteArrayOutputStream()
@@ -80,11 +79,15 @@ public final class Obfuscator {
                 bytes = outputStream.toByteArray();
             }
 
-            var classNode = new ClassNode();
-            var classReader = new ClassReader(bytes);
-            classReader.accept(classNode, ClassReader.EXPAND_FRAMES);
+            if (entry.getName().endsWith(".class")) {
+                var classNode = new ClassNode();
+                var classReader = new ClassReader(bytes);
+                classReader.accept(classNode, ClassReader.EXPAND_FRAMES);
 
-            classNodeMap.put(entry.getName(), classNode);
+                classNodeMap.put(entry.getName(), classNode);
+            } else {
+                resourceMap.put(entry.getName(), bytes);
+            }
         }
         timer.end("read input jar file");
 
@@ -103,6 +106,14 @@ public final class Obfuscator {
                     classNodeMap = newMap;
                 }
             }
+
+            // not in the if-else because some transformers may be both
+            if (transformer instanceof IResourceTransformer) {
+                var newMap = ((IResourceTransformer) transformer).transform(new HashMap<>(resourceMap));
+                if (newMap != null) {
+                    resourceMap = newMap;
+                }
+            }
             timer.end("run " + transformer.getName() + "Transformer");
         }
         timer.end("run transformers");
@@ -118,6 +129,13 @@ public final class Obfuscator {
                 classNode.accept(classWriter);
 
                 outputStream.write(classWriter.toByteArray());
+                outputStream.closeEntry();
+            }
+
+            for (var entry : resourceMap.entrySet()) {
+                var jarEntry = new JarEntry(entry.getKey());
+                outputStream.putNextEntry(jarEntry);
+                outputStream.write(entry.getValue());
                 outputStream.closeEntry();
             }
         } catch (IOException e) {
