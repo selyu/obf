@@ -9,6 +9,7 @@ import org.selyu.obf.core.transformer.IMapTransformer;
 import org.selyu.obf.core.transformer.IResourceTransformer;
 import org.selyu.obf.core.transformer.ISimpleTransformer;
 import org.selyu.obf.core.transformer.ITransformer;
+import org.selyu.obf.core.transformer.impl.BadAnnotationTransformer;
 import org.selyu.obf.core.transformer.impl.ClassNameTransformer;
 import org.selyu.obf.core.transformer.impl.DebugTransformer;
 import org.slf4j.Logger;
@@ -28,7 +29,8 @@ import java.util.jar.JarOutputStream;
 public final class Obfuscator {
     private static final ITransformer[] TRANSFORMERS = {
             new DebugTransformer(),
-            new ClassNameTransformer()
+            new ClassNameTransformer(),
+            new BadAnnotationTransformer()
     };
 
     private final Logger logger = LoggerFactory.getLogger("main");
@@ -55,6 +57,8 @@ public final class Obfuscator {
         File outputFile = new File(outputDirectory, "obf-" + inputFile.getName());
         if (outputFile.exists() && !overwriteExisting)
             throw new IllegalArgumentException("File '" + outputFile.getAbsolutePath() + "' already exists!");
+        if(outputFile.exists() && !outputFile.delete())
+            throw new IOException("Could not delete output file!");
         logger.info("Obfuscating input file '{}'", inputFile.getName());
 
         timer.start("read input jar file");
@@ -67,15 +71,15 @@ public final class Obfuscator {
             var entry = entries.nextElement();
             byte[] bytes;
 
+            if(entry.isDirectory()) continue;
+
             try (
                     var inputStream = jarFile.getInputStream(entry);
                     var outputStream = new ByteArrayOutputStream()
             ) {
-                // https://www.baeldung.com/convert-input-stream-to-array-of-bytes
-                int nRead;
-                byte[] data = new byte[1024];
-                while ((nRead = inputStream.read(data, 0, data.length)) != -1) {
-                    outputStream.write(data, 0, nRead);
+                byte[] buffer = new byte[256];
+                for (int i; (i = inputStream.read(buffer)) != -1; ) {
+                    outputStream.write(buffer, 0, i);
                 }
 
                 bytes = outputStream.toByteArray();
@@ -103,7 +107,7 @@ public final class Obfuscator {
                     ((ISimpleTransformer) transformer).transform(classNode);
                 }
             } else if (transformer instanceof IMapTransformer) {
-                var newMap = ((IMapTransformer) transformer).transformClasses(new HashMap<>(classNodeMap));
+                var newMap = ((IMapTransformer) transformer).transform(classNodeMap);
                 if (newMap != null) {
                     classNodeMap = newMap;
                 }
@@ -111,7 +115,7 @@ public final class Obfuscator {
 
             // not in the if-else because some transformers may be both
             if (transformer instanceof IResourceTransformer) {
-                var newMap = ((IResourceTransformer) transformer).transformResources(new HashMap<>(resourceMap));
+                var newMap = ((IResourceTransformer) transformer).transformResources(resourceMap);
                 if (newMap != null) {
                     resourceMap = newMap;
                 }
@@ -124,6 +128,7 @@ public final class Obfuscator {
         try (var outputStream = new JarOutputStream(Files.newOutputStream(outputFile.toPath()))) {
             logger.info("Copying transformed classes to new jar file");
             for (var classNode : classNodeMap.values()) {
+                logger.debug("N= " + classNode.name);
                 var entry = new JarEntry(classNode.name + ".class");
                 outputStream.putNextEntry(entry);
 
@@ -135,6 +140,7 @@ public final class Obfuscator {
             }
 
             for (var entry : resourceMap.entrySet()) {
+                logger.debug("R={}", entry.getKey());
                 var jarEntry = new JarEntry(entry.getKey());
                 outputStream.putNextEntry(jarEntry);
                 outputStream.write(entry.getValue());

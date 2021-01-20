@@ -16,5 +16,5 @@ public interface IMapTransformer extends ITransformer {
      * @return Null if the transformer doesn't change the map else the modified map
      */
     @Nullable
-    HashMap<String, ClassNode> transformClasses(@NotNull Map<String, ClassNode> classNodeMap);
+    HashMap<String, ClassNode> transform(@NotNull Map<String, ClassNode> classNodeMap);
 }

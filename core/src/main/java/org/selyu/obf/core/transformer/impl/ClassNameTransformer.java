@@ -1,40 +1,29 @@
 package org.selyu.obf.core.transformer.impl;
 
-import org.apache.commons.lang3.RandomStringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.commons.SimpleRemapper;
 import org.objectweb.asm.tree.ClassNode;
 import org.selyu.obf.core.transformer.IMapTransformer;
 import org.selyu.obf.core.transformer.IResourceTransformer;
+import org.selyu.obf.core.util.StringUtil;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
 public final class ClassNameTransformer implements IMapTransformer, IResourceTransformer {
-    private static final char[] ALPHABET;
-
     private static final String[] RESOURCE_EXTENSIONS = {
             ".mf",
             ".yml"
     };
 
-    static {
-        char[] original = "abcdefghijklmnopqrstuvwxyz".toCharArray();
-        ALPHABET = new char[original.length * 2];
-        for (int i = 0; i < original.length; i++) {
-            ALPHABET[i] = original[i];
-            ALPHABET[i + 1] = Character.toUpperCase(original[i]);
-        }
-    }
-
     private final Map<String, String> classNames = new HashMap<>(); // old name -> new name
 
     @Override
-    public @NotNull HashMap<String, ClassNode> transformClasses(@NotNull Map<String, ClassNode> classNodeMap) {
+    public @NotNull HashMap<String, ClassNode> transform(@NotNull Map<String, ClassNode> classNodeMap) {
         for (var classNode : classNodeMap.values()) {
-            classNames.put(classNode.name, RandomStringUtils.random(10, ALPHABET));
+            classNames.put(classNode.name, StringUtil.get(10));
         }
 
         logger().debug("Transforming classes {");
